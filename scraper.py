@@ -58,13 +58,14 @@ def scarp_tg_existing_app(cookie):
     return False, {"error": f"Unexpected page: {title}"}
 
 
-def create_new_tg_app(cookie, tg_hash):
+def create_new_tg_app(cookie, tg_hash, attempt=1):
     url = "https://my.telegram.org/apps/create"
     headers = {"Cookie": cookie}
+    shortname = f"app{time.time_ns()}"
     data = {
         "hash": tg_hash,
-        "app_title": "TestApp1",
-        "app_shortname": f"testapp{random.randint(3, 99999)}",
+        "app_title": "MyApp",
+        "app_shortname": shortname,
         "app_url": "",
         "app_platform": "desktop",
         "app_desc": "",
@@ -73,7 +74,10 @@ def create_new_tg_app(cookie, tg_hash):
     resp.raise_for_status()
 
     if resp.text != "true":
-        logger.error("App creation failed: %s", resp.text)
+        logger.error("App creation failed (attempt %d): %s", attempt, resp.text)
+        if attempt < 3:
+            logger.info("Retrying with a different shortname...")
+            return create_new_tg_app(cookie, tg_hash, attempt + 1)
         return False
 
     time.sleep(1)
