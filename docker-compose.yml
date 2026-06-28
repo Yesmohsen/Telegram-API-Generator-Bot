@@ -1,5 +1,6 @@
 services:
   bot:
+    build: .
     image: ghcr.io/yesmohsen/telegram-api-generator-bot:latest
     container_name: telegram-api-bot
     restart: unless-stopped
