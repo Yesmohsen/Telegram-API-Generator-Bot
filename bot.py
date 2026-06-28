@@ -28,6 +28,26 @@ logger = logging.getLogger(__name__)
 PHONE, CODE = range(2)
 
 
+async def _delete(update, context, msg_or_id):
+    try:
+        if isinstance(msg_or_id, int):
+            await context.bot.delete_message(
+                chat_id=update.effective_chat.id,
+                message_id=msg_or_id,
+            )
+        else:
+            await msg_or_id.delete()
+    except Exception:
+        pass
+
+
+def _phone_from_contact(update):
+    phone = update.message.contact.phone_number
+    if not phone.startswith("+"):
+        phone = "+" + phone
+    return phone
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     phone_keyboard = [[KeyboardButton("Share Contact", request_contact=True)]]
     reply_markup = ReplyKeyboardMarkup(phone_keyboard, resize_keyboard=True, one_time_keyboard=True)
@@ -45,44 +65,40 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def ask_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    phone = None
-
-    if update.message.contact:
-        phone = update.message.contact.phone_number
-        if not phone.startswith("+"):
-            phone = "+" + phone
-    elif update.message.text:
-        phone = update.message.text.strip().replace(" ", "")
-
-    if not phone or not phone.startswith("+"):
-        await update.message.reply_text(
-            "Invalid format. Send your number with country code, e.g. <code>+989123456789</code>",
-            parse_mode="HTML",
-        )
-        return PHONE
-
-    context.user_data["phone"] = phone
-
     try:
+        if update.message.contact:
+            phone = _phone_from_contact(update)
+        else:
+            phone = update.message.text.strip().replace(" ", "")
+
+        if not phone or not phone.startswith("+"):
+            await update.message.reply_text(
+                "Invalid format. Send your number with country code, e.g. <code>+989123456789</code>",
+                parse_mode="HTML",
+            )
+            return PHONE
+
+        context.user_data["phone"] = phone
         random_hash = request_tg_code_get_random_hash(phone)
         context.user_data["random_hash"] = random_hash
 
-        await update.message.delete()
-        last_msg = context.user_data.get("last_bot_msg")
-        if last_msg:
-            await last_msg.delete()
-
-        msg = await update.message.reply_text(
-            "Code sent to your Telegram account! Enter the code you received.\n"
-            "You can type it or paste it.",
+        msg = await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Code sent to your Telegram account! Enter the code you received.\n"
+                 "You can type it or paste it.",
             reply_markup=ReplyKeyboardRemove(),
         )
+
+        await _delete(update, context, update.message)
+        await _delete(update, context, context.user_data.get("last_bot_msg"))
+
         context.user_data["last_bot_msg"] = msg
         return CODE
     except Exception as e:
         logger.error(f"Error requesting code: %s", e)
-        await update.message.reply_text(
-            "Failed to send code. Check your number or try again later."
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Failed to send code. Check your number or try again later.",
         )
         return ConversationHandler.END
 
@@ -109,25 +125,28 @@ def extract_code_from_text(text):
 
 
 async def ask_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    raw_text = update.message.text or ""
-    code = extract_code_from_text(raw_text)
-
-    phone = context.user_data["phone"]
-    random_hash = context.user_data["random_hash"]
-
     try:
+        raw_text = update.message.text or ""
+        code = extract_code_from_text(raw_text)
+
+        phone = context.user_data["phone"]
+        random_hash = context.user_data["random_hash"]
+
         success, cookie_or_error = login_step_get_stel_cookie(phone, random_hash, code)
         if not success:
-            await update.message.reply_text(f"Login failed: {cookie_or_error}")
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"Login failed: {cookie_or_error}",
+            )
             return ConversationHandler.END
 
-        last_msg = context.user_data.get("last_bot_msg")
-        if last_msg:
-            await last_msg.delete()
+        msg = await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Logging into my.telegram.org...",
+        )
 
-        await update.message.delete()
-
-        msg = await update.message.reply_text("Logging into my.telegram.org...")
+        await _delete(update, context, update.message)
+        await _delete(update, context, context.user_data.get("last_bot_msg"))
 
         success, data = scarp_tg_existing_app(cookie_or_error)
         if not success:
@@ -175,7 +194,10 @@ async def ask_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
     except Exception as e:
         logger.error(f"Error: %s", e)
-        await update.message.reply_text(f"An error occurred: {e}")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"An error occurred: {e}",
+        )
 
     return ConversationHandler.END
 
