@@ -1,13 +1,18 @@
 [project]
-name = "telegram-api-session"
+name = "telegram-api-bot"
 version = "0.1.0"
-description = "a simple command app for creating and managing Telegram API sessions"
+description = "Telegram bot to get API ID and API Hash from my.telegram.org"
 readme = "README.md"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.10"
 dependencies = [
     "beautifulsoup4>=4.15.0",
-    "pyrogram>=2.0.106",
-    "pysocks>=1.7.1",
+    "python-telegram-bot>=21.0",
     "requests>=2.34.2",
-    "tgcrypto>=1.2.5",
 ]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["main", "bot", "scraper", "config"]
