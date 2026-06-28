@@ -162,11 +162,20 @@ async def ask_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if tg_hash:
                 created = create_new_tg_app(cookie_or_error, tg_hash)
                 if not created:
-                    await msg.edit_text(
-                        "App creation failed. The shortname might already exist.\n"
-                        "Please try again later or create an app manually at https://my.telegram.org"
-                    )
-                    return ConversationHandler.END
+                    await msg.edit_text("Retrying with a fresh session...")
+                    fresh_data = scarp_tg_existing_app(cookie_or_error)
+                    if fresh_data[0]:
+                        success, data = fresh_data
+                    else:
+                        fresh_hash = fresh_data[1].get("tg_app_hash")
+                        if fresh_hash:
+                            created = create_new_tg_app(cookie_or_error, fresh_hash)
+                        if not created:
+                            await msg.edit_text(
+                                "App creation failed. The server might be having issues.\n"
+                                "Please create an app manually at https://my.telegram.org"
+                            )
+                            return ConversationHandler.END
             else:
                 await msg.edit_text(
                     "Could not create app automatically. "
