@@ -1,4 +1,5 @@
 import logging
+import re
 
 from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
@@ -31,7 +32,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     phone_keyboard = [[KeyboardButton("Share Contact", request_contact=True)]]
     reply_markup = ReplyKeyboardMarkup(phone_keyboard, resize_keyboard=True, one_time_keyboard=True)
 
-    await update.message.reply_text(
+    msg = await update.message.reply_text(
         "<b>Welcome to Telegram API Bot!</b>\n\n"
         "Send me your phone number in international format\n"
         "(e.g. <code>+989123456789</code>)\n\n"
@@ -39,6 +40,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="HTML",
         reply_markup=reply_markup,
     )
+    context.user_data["last_bot_msg"] = msg
     return PHONE
 
 
@@ -61,19 +63,21 @@ async def ask_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["phone"] = phone
 
-    await update.message.reply_text(
-        "Requesting code from Telegram...",
-        reply_markup=ReplyKeyboardRemove(),
-    )
-
     try:
         random_hash = request_tg_code_get_random_hash(phone)
         context.user_data["random_hash"] = random_hash
-        await update.message.reply_text(
+
+        await update.message.delete()
+        last_msg = context.user_data.get("last_bot_msg")
+        if last_msg:
+            await last_msg.delete()
+
+        msg = await update.message.reply_text(
             "Code sent to your Telegram account! Enter the code you received.\n"
             "You can type it or paste it.",
             reply_markup=ReplyKeyboardRemove(),
         )
+        context.user_data["last_bot_msg"] = msg
         return CODE
     except Exception as e:
         logger.error(f"Error requesting code: %s", e)
@@ -83,12 +87,33 @@ async def ask_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
 
+def extract_code_from_text(text):
+    text = text.strip()
+
+    lines = text.strip().split("\n")
+    for line in reversed(lines):
+        line = line.strip()
+        line = re.sub(r"^>\s*\S+\s*:\s*", "", line).strip()
+        if re.match(r"^[A-Za-z0-9\-_]{4,}$", line):
+            return line
+
+    match = re.search(r"login code:\s*([A-Za-z0-9\-_]+)", text, re.IGNORECASE)
+    if match:
+        return match.group(1)
+
+    words = text.split()
+    if len(words) == 1:
+        return text
+
+    return text
+
+
 async def ask_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    code = update.message.text.strip()
+    raw_text = update.message.text or ""
+    code = extract_code_from_text(raw_text)
+
     phone = context.user_data["phone"]
     random_hash = context.user_data["random_hash"]
-
-    await update.message.reply_text("Logging into my.telegram.org...")
 
     try:
         success, cookie_or_error = login_step_get_stel_cookie(phone, random_hash, code)
@@ -96,26 +121,34 @@ async def ask_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"Login failed: {cookie_or_error}")
             return ConversationHandler.END
 
+        last_msg = context.user_data.get("last_bot_msg")
+        if last_msg:
+            await last_msg.delete()
+
+        await update.message.delete()
+
+        msg = await update.message.reply_text("Logging into my.telegram.org...")
+
         success, data = scarp_tg_existing_app(cookie_or_error)
         if not success:
             if "error" in data:
-                await update.message.reply_text(
+                await msg.edit_text(
                     f"No app found. Creating a new one...\nNote: {data['error']}"
                 )
             else:
-                await update.message.reply_text("No app found. Creating a new one...")
+                await msg.edit_text("No app found. Creating a new one...")
 
             tg_hash = data.get("tg_app_hash")
             if tg_hash:
                 created = create_new_tg_app(cookie_or_error, tg_hash)
                 if not created:
-                    await update.message.reply_text(
+                    await msg.edit_text(
                         "App creation failed. The shortname might already exist.\n"
                         "Please try again later or create an app manually at https://my.telegram.org"
                     )
                     return ConversationHandler.END
             else:
-                await update.message.reply_text(
+                await msg.edit_text(
                     "Could not create app automatically. "
                     "Please create one manually at https://my.telegram.org"
                 )
@@ -124,7 +157,7 @@ async def ask_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             success, data = scarp_tg_existing_app(cookie_or_error)
 
         if success:
-            await update.message.reply_text(
+            await msg.edit_text(
                 f"<b>Success!</b>\n\n"
                 f"Phone: <code>{phone}</code>\n"
                 f"API ID: <code>{data['app_id']}</code>\n"
@@ -135,7 +168,7 @@ async def ask_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             error_msg = data.get("error", "Unknown error")
             logger.error("Failed to get credentials: %s", error_msg)
-            await update.message.reply_text(
+            await msg.edit_text(
                 "Could not retrieve API credentials. The my.telegram.org page "
                 "structure might have changed.\n"
                 f"Error: {error_msg}"
