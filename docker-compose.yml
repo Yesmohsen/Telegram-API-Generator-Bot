@@ -4,6 +4,11 @@ services:
     image: ghcr.io/yesmohsen/telegram-api-generator-bot:latest
     container_name: telegram-api-bot
     restart: unless-stopped
+    stdin_open: true
+    tty: true
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_ID=${ADMIN_ID}
     volumes:
       - config_data:/app/data
 

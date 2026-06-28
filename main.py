@@ -14,21 +14,21 @@ def main():
         run_bot()
         return
 
-    if not sys.stdin.isatty():
+    try:
+        first_run_setup()
+        run_bot()
+    except EOFError:
         print("=" * 50)
         print("First Run Setup")
         print("=" * 50)
         print()
-        print("Set these environment variables in your Docker hosting dashboard:")
+        print("No config found. Set these environment variables:")
         print("  BOT_TOKEN  = your bot token from @BotFather")
         print("  ADMIN_ID   = your Telegram user ID")
         print()
         print("Then restart the container.")
         print("=" * 50)
         sys.exit(1)
-
-    first_run_setup()
-    run_bot()
 
 
 if __name__ == "__main__":
