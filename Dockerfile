@@ -7,4 +7,8 @@ RUN pip install --no-cache-dir .
 
 COPY config.py scraper.py bot.py main.py ./
 
+RUN mkdir -p /app/data
+
+ENV CONFIG_FILE=/app/data/config.json
+
 CMD ["python", "main.py"]

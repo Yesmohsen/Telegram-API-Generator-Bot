@@ -1,7 +1,7 @@
 import json
 import os
 
-CONFIG_FILE = "config.json"
+CONFIG_FILE = os.environ.get("CONFIG_FILE", "config.json")
 
 ENV_BOT_TOKEN = "BOT_TOKEN"
 ENV_ADMIN_ID = "ADMIN_ID"
