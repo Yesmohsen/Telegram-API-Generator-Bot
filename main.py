@@ -14,21 +14,24 @@ def main():
         run_bot()
         return
 
-    try:
+    if sys.stdin.isatty():
         first_run_setup()
         run_bot()
-    except EOFError:
-        print("=" * 50)
-        print("First Run Setup")
-        print("=" * 50)
-        print()
-        print("No config found. Set these environment variables:")
-        print("  BOT_TOKEN  = your bot token from @BotFather")
-        print("  ADMIN_ID   = your Telegram user ID")
-        print()
-        print("Then restart the container.")
-        print("=" * 50)
-        sys.exit(1)
+        return
+
+    print("=" * 50)
+    print("First Run Setup")
+    print("=" * 50)
+    print()
+    print("No config found. To set up:")
+    print("  1. Run interactively: docker compose up")
+    print("  2. Or set env vars in your hosting dashboard:")
+    print("     BOT_TOKEN = your bot token from @BotFather")
+    print("     ADMIN_ID  = your Telegram user ID")
+    print()
+    print("Then restart the container.")
+    print("=" * 50)
+    sys.exit(1)
 
 
 if __name__ == "__main__":

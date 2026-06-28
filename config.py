@@ -15,7 +15,10 @@ def from_env():
     token = os.environ.get(ENV_BOT_TOKEN)
     admin = os.environ.get(ENV_ADMIN_ID)
     if token and admin:
-        return {"bot_token": token, "admin_id": int(admin)}
+        try:
+            return {"bot_token": token, "admin_id": int(admin)}
+        except ValueError:
+            return None
     return None
 
 
