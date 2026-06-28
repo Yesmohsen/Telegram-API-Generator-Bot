@@ -23,15 +23,15 @@ def main():
     print("First Run Setup")
     print("=" * 50)
     print()
-    print("No config found. To set up:")
-    print("  1. Run interactively: docker compose up")
-    print("  2. Or set env vars in your hosting dashboard:")
-    print("     BOT_TOKEN = your bot token from @BotFather")
-    print("     ADMIN_ID  = your Telegram user ID")
+    print("BOT_TOKEN and ADMIN_ID not set.")
     print()
-    print("Then restart the container.")
+    print("Set these environment variables in Dockage dashboard,")
+    print("then restart the container:")
+    print()
+    print("  BOT_TOKEN = your bot token from @BotFather")
+    print("  ADMIN_ID  = your Telegram user ID")
     print("=" * 50)
-    sys.exit(1)
+    sys.exit(0)
 
 
 if __name__ == "__main__":
