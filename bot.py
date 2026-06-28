@@ -42,7 +42,7 @@ async def _delete(update, context, msg_or_id):
 
 
 def _phone_from_contact(update):
-    phone = update.message.contact.phone_number
+    phone = update.message.contact.phone_number.replace(" ", "").replace("-", "")
     if not phone.startswith("+"):
         phone = "+" + phone
     return phone
