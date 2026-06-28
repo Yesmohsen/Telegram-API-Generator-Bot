@@ -1,101 +1,51 @@
-# Telegram API & Session Creator
+# Telegram API Bot
 
-A Python tool for generating or retrieving Telegram API credentials (API ID and API Hash) and creating Pyrogram session strings for automation workflows.
+A Telegram bot that provides **API ID** and **API Hash** from `my.telegram.org` — no manual website login needed.
 
-> ⚠️ This tool interacts with https://my.telegram.org and requires a valid Telegram account.
+## How it works
 
----
+1. User sends `/start` to the bot
+2. User sends their **phone number** (international format, e.g. `+989123456789`)
+3. Bot requests a login code from `my.telegram.org`
+4. User sends the **code** they received via SMS
+5. Bot logs in, creates a new app (or finds an existing one), and returns **API ID + API Hash**
 
-## Features
-
-- 🔑 Retrieve or generate Telegram **API ID & API Hash**
-- 🤖 Automates login flow via `my.telegram.org`
-- 💾 Generates **Pyrogram session strings**
-- 📁 Saves session data locally as a `.txt` file
-- ⚡ Simple interactive CLI
-
----
-
-## Requirements
-
-- Python **3.10+** (recommended: 3.11 or 3.12)
-- Internet connection
-- A Telegram account
-
----
-
-## Setup (Recommended: uv + virtual environment)
-
-This project uses **uv** for fast dependency management and virtual environments.
-
-### 1. Install uv
-
-If you don't already have `uv` installed:
-
-```bash
-curl -Ls https://astral.sh/uv/install.sh | sh
-```
-
-or:
-```bash
-pip install uv
-```
-
-### 2. Create a virtual environment
-
-Inside the project folder:
-
-```bash
-uv venv .venv
-```
-
-This creates an isolated Python environment inside `.venv`.
-
-### 3. Activate the environment
-
-Linux / macOS:
-
-```bash
-source .venv/bin/activate
-```
-
-Windows (PowerShell):
-
-```bash
-.venv\Scripts\Activate.ps1
-```
-
-### 4. Install dependencies
-
-If you have a requirements.txt:
-
-```bash
-uv pip install -r requirements.txt
-```
-
-If not, install manually:
-
-```bash
-uv pip install pyrogram tgcrypto requests beautifulsoup4
-```
-
-### Running the project
-
-After activating the virtual environment:
+## Run Locally
 
 ```bash
 python main.py
 ```
 
-### Project Structure
-telegram-api-session/
-├── main.py
-├── requirements.txt
-├── pyproject.toml (optional)
-├── .venv/
-└── session_output.txt
+On first run, it asks for your **bot token** (from [@BotFather](https://t.me/BotFather)) and **admin user ID**.
 
-### Disclaimer
+### With Docker
 
-This project is for educational purposes only.
-Users are responsible for complying with Telegram’s Terms of Service.
+```bash
+docker compose up -d
+```
+
+Set `BOT_TOKEN` and `ADMIN_ID` as environment variables (or in a `.env` file).
+
+## Docker Image
+
+The Docker image is built automatically and published to **GitHub Container Registry**:
+
+```
+ghcr.io/yesmohsen/telegram-api-generator-bot:latest
+```
+
+## Project Structure
+
+```
+├── main.py          # Entry point
+├── bot.py           # Telegram bot handlers
+├── scraper.py       # my.telegram.org login + scraping
+├── config.py        # Config management (env vars / config.json)
+├── Dockerfile
+├── docker-compose.yml
+└── .github/workflows/docker-build.yml
+```
+
+## Disclaimer
+
+For educational purposes. Users are responsible for complying with Telegram's Terms of Service.
