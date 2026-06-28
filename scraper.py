@@ -1,7 +1,11 @@
+import logging
 import random
+import time
 
 import requests
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
 
 
 def request_tg_code_get_random_hash(phone):
@@ -38,12 +42,20 @@ def scarp_tg_existing_app(cookie):
 
     if "configuration" in title:
         inputs = soup.find_all("span", {"class": "input-xlarge"})
-        app_id = inputs[0].string
-        api_hash = inputs[1].string
-        return True, {"app_id": app_id, "api_hash": api_hash}
+        if len(inputs) >= 2:
+            app_id = inputs[0].string.strip()
+            api_hash = inputs[1].string.strip()
+            return True, {"app_id": app_id, "api_hash": api_hash}
+        logger.warning("Found configuration page but couldn't extract app_id/api_hash")
+        return False, {"error": "Could not extract credentials from page"}
 
-    tg_hash = soup.find("input", {"name": "hash"}).get("value")
-    return False, {"tg_app_hash": tg_hash}
+    tg_hash_input = soup.find("input", {"name": "hash"})
+    if tg_hash_input:
+        tg_hash = tg_hash_input.get("value")
+        return False, {"tg_app_hash": tg_hash}
+
+    logger.error("Unexpected page structure. Title: %s", title)
+    return False, {"error": f"Unexpected page: {title}"}
 
 
 def create_new_tg_app(cookie, tg_hash):
@@ -59,4 +71,10 @@ def create_new_tg_app(cookie, tg_hash):
     }
     resp = requests.post(url, data=data, headers=headers)
     resp.raise_for_status()
-    return resp
+
+    if resp.text != "true":
+        logger.error("App creation failed: %s", resp.text)
+        return False
+
+    time.sleep(1)
+    return True
