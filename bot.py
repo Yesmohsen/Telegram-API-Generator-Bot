@@ -79,6 +79,10 @@ async def ask_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return PHONE
 
         context.user_data["phone"] = phone
+
+        await _delete(update, context, update.message)
+        await _delete(update, context, context.user_data.get("last_bot_msg"))
+
         random_hash = request_tg_code_get_random_hash(phone)
         context.user_data["random_hash"] = random_hash
 
@@ -88,9 +92,6 @@ async def ask_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  "You can type it or paste it.",
             reply_markup=ReplyKeyboardRemove(),
         )
-
-        await _delete(update, context, update.message)
-        await _delete(update, context, context.user_data.get("last_bot_msg"))
 
         context.user_data["last_bot_msg"] = msg
         return CODE
