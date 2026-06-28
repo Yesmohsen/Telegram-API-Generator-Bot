@@ -61,7 +61,7 @@ def scarp_tg_existing_app(cookie):
 def create_new_tg_app(cookie, tg_hash, attempt=1):
     url = "https://my.telegram.org/apps/create"
     headers = {"Cookie": cookie}
-    shortname = f"app{time.time_ns()}"
+    shortname = f"app{int(time.time())}{random.randint(100,999)}"
     data = {
         "hash": tg_hash,
         "app_title": "MyApp",
