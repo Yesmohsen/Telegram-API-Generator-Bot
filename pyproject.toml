@@ -8,6 +8,7 @@ dependencies = [
     "beautifulsoup4>=4.15.0",
     "python-telegram-bot>=21.0",
     "requests>=2.34.2",
+    "PySocks>=1.7.1",
 ]
 
 [build-system]

@@ -15,6 +15,7 @@ from config import load_config
 from scraper import (
     create_new_tg_app,
     login_step_get_stel_cookie,
+    make_session,
     request_tg_code_get_random_hash,
     scarp_tg_existing_app,
 )
@@ -83,7 +84,11 @@ async def ask_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _delete(update, context, update.message)
         await _delete(update, context, context.user_data.get("last_bot_msg"))
 
-        random_hash = request_tg_code_get_random_hash(phone)
+        proxy = context.bot_data.get("proxy")
+        session = make_session(proxy=proxy)
+        context.user_data["session"] = session
+
+        random_hash = request_tg_code_get_random_hash(phone, session=session)
         context.user_data["random_hash"] = random_hash
 
         msg = await context.bot.send_message(
@@ -132,14 +137,20 @@ async def ask_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         phone = context.user_data["phone"]
         random_hash = context.user_data["random_hash"]
+        session = context.user_data.get("session")
 
-        success, cookie_or_error = login_step_get_stel_cookie(phone, random_hash, code)
+        success, session_or_error = login_step_get_stel_cookie(
+            phone, random_hash, code, session=session
+        )
         if not success:
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=f"Login failed: {cookie_or_error}",
+                text=f"Login failed: {session_or_error}",
             )
             return ConversationHandler.END
+
+        context.user_data["session"] = session_or_error
+        session = session_or_error
 
         msg = await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -149,7 +160,7 @@ async def ask_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _delete(update, context, update.message)
         await _delete(update, context, context.user_data.get("last_bot_msg"))
 
-        success, data = scarp_tg_existing_app(cookie_or_error)
+        success, data = scarp_tg_existing_app(session)
         if not success:
             if "error" in data:
                 await msg.edit_text(
@@ -159,31 +170,31 @@ async def ask_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await msg.edit_text("No app found. Creating a new one...")
 
             tg_hash = data.get("tg_app_hash")
-            if tg_hash:
-                created = create_new_tg_app(cookie_or_error, tg_hash)
-                if not created:
-                    await msg.edit_text("Retrying with a fresh session...")
-                    fresh_data = scarp_tg_existing_app(cookie_or_error)
-                    if fresh_data[0]:
-                        success, data = fresh_data
-                    else:
-                        fresh_hash = fresh_data[1].get("tg_app_hash")
-                        if fresh_hash:
-                            created = create_new_tg_app(cookie_or_error, fresh_hash)
-                        if not created:
-                            await msg.edit_text(
-                                "App creation failed. The server might be having issues.\n"
-                                "Please create an app manually at https://my.telegram.org"
-                            )
-                            return ConversationHandler.END
-            else:
+            if not tg_hash:
                 await msg.edit_text(
                     "Could not create app automatically. "
                     "Please create one manually at https://my.telegram.org"
                 )
                 return ConversationHandler.END
 
-            success, data = scarp_tg_existing_app(cookie_or_error)
+            created = create_new_tg_app(session, tg_hash)
+            if not created:
+                await msg.edit_text("Retrying with a fresh session...")
+                success, data = scarp_tg_existing_app(session)
+                if success:
+                    pass
+                else:
+                    fresh_hash = data.get("tg_app_hash")
+                    if fresh_hash:
+                        created = create_new_tg_app(session, fresh_hash)
+                    if not created:
+                        await msg.edit_text(
+                            "App creation failed. The server might be having issues.\n"
+                            "Please create an app manually at https://my.telegram.org"
+                        )
+                        return ConversationHandler.END
+
+            success, data = scarp_tg_existing_app(session)
 
         if success:
             await msg.edit_text(
@@ -223,6 +234,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def run_bot():
     config = load_config()
     app = Application.builder().token(config["bot_token"]).build()
+    app.bot_data["proxy"] = config.get("proxy")
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],

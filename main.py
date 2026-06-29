@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 import threading
@@ -7,10 +6,9 @@ import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from bot import run_bot
-from config import config_exists, from_env
+from config import config_exists, from_env, save_config
 
 PORT = int(os.environ.get("PORT", 8080))
-CONFIG_FILE = os.environ.get("CONFIG_FILE", "config.json")
 
 SETUP_HTML = """<!DOCTYPE html>
 <html lang="en">
@@ -44,6 +42,9 @@ SETUP_HTML = """<!DOCTYPE html>
       <label for="admin_id">Admin User ID</label>
       <input type="text" id="admin_id" name="admin_id" placeholder="123456789" required>
       <p class="hint">Your Telegram user ID (numeric)</p>
+      <label for="proxy">Proxy (optional)</label>
+      <input type="text" id="proxy" name="proxy" placeholder="socks5://127.0.0.1:40000">
+      <p class="hint">For Cloudflare WARP or other proxy (e.g. socks5://127.0.0.1:40000)</p>
       <button type="submit">Save &amp; Start Bot</button>
     </form>
     <div id="msg"></div>
@@ -76,6 +77,7 @@ class SetupHandler(BaseHTTPRequestHandler):
             params = urllib.parse.parse_qs(body)
             bot_token = params.get("bot_token", [""])[0].strip()
             admin_id = params.get("admin_id", [""])[0].strip()
+            proxy = params.get("proxy", [""])[0].strip()
 
             if not bot_token or not admin_id:
                 self._send(400, '<p class="error">Both fields are required.</p>', "text/html")
@@ -87,8 +89,7 @@ class SetupHandler(BaseHTTPRequestHandler):
                 self._send(400, '<p class="error">Admin ID must be a number.</p>', "text/html")
                 return
 
-            with open(CONFIG_FILE, "w") as f:
-                json.dump({"bot_token": bot_token, "admin_id": int(admin_id)}, f)
+            save_config(bot_token, admin_id, proxy)
 
             self._send(200, '<p class="success">Saved! Starting bot...</p>', "text/html")
             threading.Thread(target=self.server.shutdown, daemon=True).start()

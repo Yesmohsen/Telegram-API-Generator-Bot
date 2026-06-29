@@ -8,6 +8,10 @@ services:
     tty: true
     ports:
       - "8080:8080"
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - WARP_ENABLED=true
     volumes:
       - config_data:/app/data
 

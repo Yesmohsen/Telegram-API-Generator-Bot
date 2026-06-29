@@ -5,6 +5,7 @@ CONFIG_FILE = os.environ.get("CONFIG_FILE", "config.json")
 
 ENV_BOT_TOKEN = "BOT_TOKEN"
 ENV_ADMIN_ID = "ADMIN_ID"
+ENV_PROXY = "PROXY"
 
 
 def config_exists():
@@ -14,9 +15,13 @@ def config_exists():
 def from_env():
     token = os.environ.get(ENV_BOT_TOKEN)
     admin = os.environ.get(ENV_ADMIN_ID)
+    proxy = os.environ.get(ENV_PROXY)
     if token and admin:
         try:
-            return {"bot_token": token, "admin_id": int(admin)}
+            cfg = {"bot_token": token, "admin_id": int(admin)}
+            if proxy:
+                cfg["proxy"] = proxy
+            return cfg
         except ValueError:
             return None
     return None
@@ -30,13 +35,12 @@ def load_config():
         return json.load(f)
 
 
-def save_config(bot_token, admin_id):
+def save_config(bot_token, admin_id, proxy=""):
+    cfg = {"bot_token": bot_token, "admin_id": int(admin_id)}
+    if proxy:
+        cfg["proxy"] = proxy
     with open(CONFIG_FILE, "w") as f:
-        json.dump(
-            {"bot_token": bot_token, "admin_id": int(admin_id)},
-            f,
-            indent=2,
-        )
+        json.dump(cfg, f, indent=2)
 
 
 def first_run_setup():
