@@ -34,6 +34,34 @@ The Docker image is built automatically and published to **GitHub Container Regi
 ghcr.io/yesmohsen/telegram-api-generator-bot:latest
 ```
 
+## Known Issue: `my.telegram.org` returns ERROR
+
+In some countries (Iran, China, etc.), `my.telegram.org` blocks API credential creation
+and returns **"ERROR"**. This is an IP-based block.
+
+### Solution: Cloudflare WARP (Docker)
+
+The Docker setup includes automatic Cloudflare WARP configuration via `wgcf`:
+
+```yaml
+# docker-compose.yml
+environment:
+  - WARP_ENABLED=true    # enables the WARP tunnel
+cap_add:
+  - NET_ADMIN            # required for WireGuard
+```
+
+On first run, the bot will:
+1. Register a free Cloudflare WARP account (generates a key)
+2. Create a WireGuard config
+3. Route all traffic through the WARP tunnel — bypassing the IP block
+
+### If WARP doesn't solve it
+
+This is a known open issue. If you know how to fix it, please contribute:
+
+https://github.com/Yesmohsen/Telegram-API-Generator-Bot
+
 ## Project Structure
 
 ```
