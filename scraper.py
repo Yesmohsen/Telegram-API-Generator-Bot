@@ -71,14 +71,21 @@ def scarp_tg_existing_app(session):
         logger.warning("Found configuration page but couldn't extract app_id/api_hash")
         return False, {"error": "Could not extract credentials from page"}
 
+    form = soup.find("form")
+    if form:
+        inputs = form.find_all("input")
+        logger.debug("Form action=%s, inputs: %s",
+                     form.get("action"),
+                     [(i.get("name"), i.get("value", "")) for i in inputs])
+
     tg_hash_input = soup.find("input", {"name": "hash"})
     if tg_hash_input:
         tg_hash = tg_hash_input.get("value")
         logger.debug("Found tg_hash=%s", tg_hash)
         return False, {"tg_app_hash": tg_hash}
 
-    logger.error("Unexpected page (url=%s, title=%s). First 300 chars: %s",
-                  resp.url, title, resp.text[:300])
+    logger.error("Unexpected page (url=%s, title=%s). First 500 chars: %s",
+                  resp.url, title, resp.text[:500])
     return False, {"error": f"Unexpected page: {title}"}
 
 
@@ -101,6 +108,10 @@ def create_new_tg_app(session, tg_hash):
         resp = session.post(
             "https://my.telegram.org/apps/create",
             data=data,
+            headers={
+                "Referer": "https://my.telegram.org/apps",
+                "X-Requested-With": "XMLHttpRequest",
+            },
             timeout=REQUEST_TIMEOUT,
         )
         resp.raise_for_status()
@@ -113,6 +124,28 @@ def create_new_tg_app(session, tg_hash):
             return True
 
         last_error = f"(status={resp.status_code} url={resp.url} platform={platform}): {resp.text[:500]}"
+
+    logger.debug("Trying creation without headers...")
+    data = {
+        "hash": tg_hash,
+        "app_title": f"App {ts}",
+        "app_shortname": f"app{ts}",
+        "app_url": "",
+        "app_platform": "desktop",
+        "app_desc": "",
+    }
+    resp = session.post(
+        "https://my.telegram.org/apps/create",
+        data=data,
+        timeout=REQUEST_TIMEOUT,
+    )
+    resp.raise_for_status()
+    logger.debug("Create (no headers) status=%s url=%s text=%s",
+                  resp.status_code, resp.url, resp.text[:500])
+    if resp.text.strip() == "true":
+        time.sleep(1)
+        return True
+    last_error = f"(no headers status={resp.status_code} url={resp.url}): {resp.text[:500]}"
 
     logger.error("App creation failed %s", last_error)
     return False
