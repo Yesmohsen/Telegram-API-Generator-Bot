@@ -185,8 +185,11 @@ async def ask_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         created = create_new_tg_app(session, fresh_hash)
                     if not created:
                         await msg.edit_text(
-                            "App creation failed. The server might be having issues.\n"
-                            "Please create an app manually at https://my.telegram.org"
+                            "App creation failed: my.telegram.org returned ERROR.\n"
+                            "This is a known issue — if you know how to fix it,\n"
+                            "please contribute at github.com/Yesmohsen/Telegram-API-Generator-Bot\n\n"
+                            "Alternatively, create an app manually at:\n"
+                            "https://my.telegram.org/apps"
                         )
                         return ConversationHandler.END
 
