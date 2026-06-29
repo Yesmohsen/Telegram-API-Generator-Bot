@@ -3,6 +3,8 @@ set -e
 
 WARP_DATA_DIR="${WARP_DATA_DIR:-/app/data}"
 
+echo "[ENTRYPOINT] WARP_ENABLED='${WARP_ENABLED:-unset}'"
+
 if [ "$WARP_ENABLED" = "true" ]; then
     echo "[WARP] Setting up Cloudflare WARP..."
 

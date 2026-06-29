@@ -127,7 +127,10 @@ def create_new_tg_app(session, tg_hash):
     resp = session.post(
         "https://my.telegram.org/apps/create",
         data=data,
-        headers={"Referer": "https://my.telegram.org/apps"},
+        headers={
+            "Origin": "https://my.telegram.org",
+            "Referer": "https://my.telegram.org/apps",
+        },
         timeout=REQUEST_TIMEOUT,
     )
     resp.raise_for_status()
@@ -150,6 +153,10 @@ def create_new_tg_app(session, tg_hash):
         logger.warning("Title=%s error=%s", page_title, err)
     else:
         logger.warning("Non-HTML response from /apps/create")
+        if resp.text.strip() == "ERROR":
+            logger.error("my.telegram.org returned ERROR. This usually means your IP is blocked "
+                          "or you need to use a VPN/Cloudflare WARP. "
+                          "Make sure WARP is enabled in docker-compose.yml: WARP_ENABLED=true")
 
     logger.error("App creation failed")
     return False
