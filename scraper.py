@@ -55,8 +55,12 @@ def scarp_tg_existing_app(session):
     resp = session.get(url, timeout=REQUEST_TIMEOUT)
     resp.raise_for_status()
 
+    logger.debug("Scrape response status=%s url=%s (len=%s)",
+                  resp.status_code, resp.url, len(resp.text))
+
     soup = BeautifulSoup(resp.text, features="html.parser")
-    title = soup.title.string
+    title_tag = soup.title
+    title = title_tag.string if title_tag else ""
 
     if "configuration" in title:
         inputs = soup.find_all("span", {"class": "input-xlarge"})
@@ -70,33 +74,45 @@ def scarp_tg_existing_app(session):
     tg_hash_input = soup.find("input", {"name": "hash"})
     if tg_hash_input:
         tg_hash = tg_hash_input.get("value")
+        logger.debug("Found tg_hash=%s", tg_hash)
         return False, {"tg_app_hash": tg_hash}
 
-    logger.error("Unexpected page structure. Title: %s", title)
+    logger.error("Unexpected page (url=%s, title=%s). First 300 chars: %s",
+                  resp.url, title, resp.text[:300])
     return False, {"error": f"Unexpected page: {title}"}
 
 
 def create_new_tg_app(session, tg_hash):
     ts = int(time.time())
-    shortname = f"app{ts}"
-    data = {
-        "hash": tg_hash,
-        "app_title": f"App{ts}",
-        "app_shortname": shortname,
-        "app_url": "",
-        "app_platform": "desktop",
-        "app_desc": "",
-    }
-    resp = session.post(
-        "https://my.telegram.org/apps/create",
-        data=data,
-        timeout=REQUEST_TIMEOUT,
-    )
-    resp.raise_for_status()
+    shortname = f"app_{ts}"
 
-    if resp.text == "true":
-        time.sleep(1)
-        return True
+    platforms = ["web", "desktop", "other"]
+    last_error = None
 
-    logger.error("App creation failed: %s", resp.text[:200])
+    for platform in platforms:
+        data = {
+            "hash": tg_hash,
+            "app_title": f"App {ts}",
+            "app_shortname": shortname,
+            "app_url": "",
+            "app_platform": platform,
+            "app_desc": "",
+        }
+        resp = session.post(
+            "https://my.telegram.org/apps/create",
+            data=data,
+            timeout=REQUEST_TIMEOUT,
+        )
+        resp.raise_for_status()
+
+        logger.debug("Create response status=%s url=%s platform=%s text=%s",
+                      resp.status_code, resp.url, platform, resp.text[:500])
+
+        if resp.text.strip() == "true":
+            time.sleep(1)
+            return True
+
+        last_error = f"(status={resp.status_code} url={resp.url} platform={platform}): {resp.text[:500]}"
+
+    logger.error("App creation failed %s", last_error)
     return False

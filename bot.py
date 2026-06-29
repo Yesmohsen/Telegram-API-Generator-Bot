@@ -24,6 +24,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
+logging.getLogger("scraper").setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 PHONE, CODE = range(2)
@@ -162,12 +163,7 @@ async def ask_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         success, data = scarp_tg_existing_app(session)
         if not success:
-            if "error" in data:
-                await msg.edit_text(
-                    f"No app found. Creating a new one...\nNote: {data['error']}"
-                )
-            else:
-                await msg.edit_text("No app found. Creating a new one...")
+            await msg.edit_text("No app found. Creating a new one...")
 
             tg_hash = data.get("tg_app_hash")
             if not tg_hash:
