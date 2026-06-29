@@ -91,61 +91,28 @@ def scarp_tg_existing_app(session):
 
 def create_new_tg_app(session, tg_hash):
     ts = int(time.time())
-    shortname = f"app_{ts}"
-
-    platforms = ["web", "desktop", "other"]
-    last_error = None
-
-    for platform in platforms:
-        data = {
-            "hash": tg_hash,
-            "app_title": f"App {ts}",
-            "app_shortname": shortname,
-            "app_url": "",
-            "app_platform": platform,
-            "app_desc": "",
-        }
-        resp = session.post(
-            "https://my.telegram.org/apps/create",
-            data=data,
-            headers={
-                "Referer": "https://my.telegram.org/apps",
-                "X-Requested-With": "XMLHttpRequest",
-            },
-            timeout=REQUEST_TIMEOUT,
-        )
-        resp.raise_for_status()
-
-        logger.debug("Create response status=%s url=%s platform=%s text=%s",
-                      resp.status_code, resp.url, platform, resp.text[:500])
-
-        if resp.text.strip() == "true":
-            time.sleep(1)
-            return True
-
-        last_error = f"(status={resp.status_code} url={resp.url} platform={platform}): {resp.text[:500]}"
-
-    logger.debug("Trying creation without headers...")
     data = {
         "hash": tg_hash,
         "app_title": f"App {ts}",
-        "app_shortname": f"app{ts}",
+        "app_shortname": f"app_{ts}",
         "app_url": "",
         "app_platform": "desktop",
-        "app_desc": "",
     }
     resp = session.post(
-        "https://my.telegram.org/apps/create",
+        "https://my.telegram.org/apps",
         data=data,
+        headers={"Referer": "https://my.telegram.org/apps"},
         timeout=REQUEST_TIMEOUT,
     )
     resp.raise_for_status()
-    logger.debug("Create (no headers) status=%s url=%s text=%s",
+
+    logger.debug("Create response status=%s url=%s text=%s",
                   resp.status_code, resp.url, resp.text[:500])
+
     if resp.text.strip() == "true":
         time.sleep(1)
         return True
-    last_error = f"(no headers status={resp.status_code} url={resp.url}): {resp.text[:500]}"
 
-    logger.error("App creation failed %s", last_error)
+    logger.error("App creation failed (status=%s url=%s): %s",
+                  resp.status_code, resp.url, resp.text[:500])
     return False
