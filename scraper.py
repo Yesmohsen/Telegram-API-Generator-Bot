@@ -89,12 +89,30 @@ def scarp_tg_existing_app(session):
     return False, {"error": f"Unexpected page: {title}"}
 
 
+def _parse_error_from_html(html):
+    soup = BeautifulSoup(html, features="html.parser")
+    for tag in soup.find_all(["div", "span", "p", "li"]):
+        cls = " ".join(tag.get("class", []))
+        text = tag.get_text(strip=True)
+        if text and ("error" in cls.lower() or "alert" in cls.lower() or "danger" in cls.lower()):
+            return text[:300]
+    for tag in soup.find_all(["div", "span", "p"]):
+        text = tag.get_text(strip=True)
+        if text and any(w in text.lower() for w in ["error", "invalid", "already", "taken"]):
+            if len(text) < 300:
+                return text
+    return "(no error text found)"
+
+
 def create_new_tg_app(session, tg_hash):
     ts = int(time.time())
+    rand_suffix = ts % 1000000
+
+    shortname = f"app{rand_suffix}"
     data = {
         "hash": tg_hash,
         "app_title": f"App {ts}",
-        "app_shortname": f"app_{ts}",
+        "app_shortname": shortname,
         "app_url": "",
         "app_platform": "desktop",
     }
@@ -106,13 +124,26 @@ def create_new_tg_app(session, tg_hash):
     )
     resp.raise_for_status()
 
-    logger.debug("Create response status=%s url=%s text=%s",
-                  resp.status_code, resp.url, resp.text[:500])
+    logger.debug("Create response status=%s url=%s len=%s",
+                  resp.status_code, resp.url, len(resp.text))
 
     if resp.text.strip() == "true":
         time.sleep(1)
         return True
 
-    logger.error("App creation failed (status=%s url=%s): %s",
-                  resp.status_code, resp.url, resp.text[:500])
+    soup = BeautifulSoup(resp.text, features="html.parser")
+    title_tag = soup.title
+    page_title = title_tag.string if title_tag else ""
+
+    if "configuration" in page_title:
+        time.sleep(1)
+        return True
+
+    err = _parse_error_from_html(resp.text)
+    logger.warning("Form inputs after POST: %s",
+                    [(i.get("name"), i.get("value", ""))
+                     for i in soup.find_all("input")])
+    logger.error("App creation failed. Page title=%s error=%s",
+                  page_title, err)
+
     return False
