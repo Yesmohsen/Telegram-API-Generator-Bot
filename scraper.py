@@ -104,11 +104,18 @@ def _parse_error_from_html(html):
     return "(no error text found)"
 
 
+def _save_response_debug(resp, label):
+    try:
+        with open(f"/tmp/create_debug_{label}.html", "w") as f:
+            f.write(resp.text[:10000])
+    except Exception:
+        pass
+
+
 def create_new_tg_app(session, tg_hash):
     ts = int(time.time())
-    rand_suffix = ts % 1000000
+    shortname = f"app{ts % 1000000}"
 
-    shortname = f"app{rand_suffix}"
     data = {
         "hash": tg_hash,
         "app_title": f"App {ts}",
@@ -116,34 +123,33 @@ def create_new_tg_app(session, tg_hash):
         "app_url": "",
         "app_platform": "desktop",
     }
+
     resp = session.post(
-        "https://my.telegram.org/apps",
+        "https://my.telegram.org/apps/create",
         data=data,
         headers={"Referer": "https://my.telegram.org/apps"},
         timeout=REQUEST_TIMEOUT,
     )
     resp.raise_for_status()
 
-    logger.debug("Create response status=%s url=%s len=%s",
-                  resp.status_code, resp.url, len(resp.text))
+    logger.debug("POST /apps/create status=%s url=%s len=%s txt=%s",
+                  resp.status_code, resp.url, len(resp.text), resp.text[:500])
 
     if resp.text.strip() == "true":
         time.sleep(1)
         return True
 
-    soup = BeautifulSoup(resp.text, features="html.parser")
-    title_tag = soup.title
-    page_title = title_tag.string if title_tag else ""
+    if resp.text.startswith("<"):
+        soup = BeautifulSoup(resp.text, features="html.parser")
+        title_tag = soup.title
+        page_title = title_tag.string if title_tag else ""
+        if "configuration" in page_title:
+            time.sleep(1)
+            return True
+        err = _parse_error_from_html(resp.text)
+        logger.warning("Title=%s error=%s", page_title, err)
+    else:
+        logger.warning("Non-HTML response from /apps/create")
 
-    if "configuration" in page_title:
-        time.sleep(1)
-        return True
-
-    err = _parse_error_from_html(resp.text)
-    logger.warning("Form inputs after POST: %s",
-                    [(i.get("name"), i.get("value", ""))
-                     for i in soup.find_all("input")])
-    logger.error("App creation failed. Page title=%s error=%s",
-                  page_title, err)
-
+    logger.error("App creation failed")
     return False
